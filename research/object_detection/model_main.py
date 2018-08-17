@@ -25,6 +25,8 @@ import tensorflow as tf
 from object_detection import model_hparams
 from object_detection import model_lib
 
+import horovod.tensorflow as hvd
+
 flags.DEFINE_string(
     'model_dir', None, 'Path to output model directory '
     'where event and checkpoint files will be written.')
@@ -53,6 +55,8 @@ def main(unused_argv):
   flags.mark_flag_as_required('model_dir')
   flags.mark_flag_as_required('pipeline_config_path')
   config = tf.estimator.RunConfig(model_dir=FLAGS.model_dir)
+
+  hvd.init()
 
   train_and_eval_dict = model_lib.create_estimator_and_inputs(
       run_config=config,
@@ -92,9 +96,11 @@ def main(unused_argv):
         train_steps,
         eval_steps,
         eval_on_train_data=False)
-
+    
+    logging_hook = tf.train.LoggingTensorHook(tensors={"detection_boxes":"detection_boxes"}, every_n_iter=500)
+    bcast_hook = hvd.BroadcastGlobalVariablesHook(0)
     # Currently only a single Eval Spec is allowed.
-    tf.estimator.train_and_evaluate(estimator, train_spec, eval_specs[0])
+    tf.estimator.train_and_evaluate(estimator, train_spec, eval_specs[0], hooks=[logging_hook, bcast_hook])
 
 
 if __name__ == '__main__':

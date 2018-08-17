@@ -22,6 +22,7 @@ import functools
 import os
 
 import tensorflow as tf
+import horovod.tensorflow as hvd
 
 from object_detection import eval_util
 from object_detection import inputs
@@ -312,6 +313,8 @@ def create_model_fn(detection_model_fn, configs, hparams, use_tpu=False):
       if use_tpu:
         training_optimizer = tf.contrib.tpu.CrossShardOptimizer(
             training_optimizer)
+      
+      optimizer = hvd.DistributedOptimizer(optimizer)
 
       # Optionally freeze some layers by setting their gradients to be zero.
       trainable_variables = None
@@ -638,6 +641,8 @@ def continuous_eval(estimator, model_dir, input_fn, eval_steps, train_steps,
   def terminate_eval():
     tf.logging.info('Terminating eval after 180 seconds of no checkpoints')
     return True
+  
+  model_dir = model_dir if hvd.rank() == 0 else None
 
   for ckpt in tf.contrib.training.checkpoints_iterator(
       model_dir, min_interval_secs=180, timeout=None,
