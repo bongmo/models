@@ -103,7 +103,7 @@ def main(unused_argv):
     
     logging_hook = tf.train.LoggingTensorHook(tensors={"detection_boxes":"detection_boxes"}, every_n_iter=500)
     # Currently only a single Eval Spec is allowed.
-    tf.estimator.train( input_fn = train_input_fn, steps = train_steps )
+    estimator.train( input_fn = train_input_fn, steps = train_steps )
     #tf.estimator.train_and_evaluate(estimator, train_spec, eval_specs[0], hooks=[logging_hook, bcast_hook])
 
 
