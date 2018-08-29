@@ -25,8 +25,6 @@ import tensorflow as tf
 from object_detection import model_hparams
 from object_detection import model_lib
 
-import horovod.tensorflow as hvd
-
 flags.DEFINE_string(
     'model_dir', None, 'Path to output model directory '
     'where event and checkpoint files will be written.')
@@ -48,15 +46,21 @@ flags.DEFINE_boolean(
 )
 flags.DEFINE_boolean('eval_training_data', False,
                      'If training data should be evaluated for this job.')
+flags.DEFINE_integer('num_gpus', 4, 'Number of gpus.')
 FLAGS = flags.FLAGS
 
 
 def main(unused_argv):
   flags.mark_flag_as_required('model_dir')
   flags.mark_flag_as_required('pipeline_config_path')
-  config = tf.estimator.RunConfig(model_dir=FLAGS.model_dir)
-
-  hvd.init()
+  session_config = tf.ConfigProto(
+      inter_op_parallelism_threads=8,
+      intra_op_parallelism_threads=8,
+      allow_soft_placement=True)
+  distribution_strategy = tf.contrib.distribute.MirroredStrategy(num_gpus=FLAGS.num_gpus)
+  config = tf.estimator.RunConfig(model_dir = FLAGS.model_dir, 
+    train_distribute = distribution_strategy,
+    session_config = session_config)
 
   train_and_eval_dict = model_lib.create_estimator_and_inputs(
       run_config=config,
@@ -98,9 +102,9 @@ def main(unused_argv):
         eval_on_train_data=False)
     
     logging_hook = tf.train.LoggingTensorHook(tensors={"detection_boxes":"detection_boxes"}, every_n_iter=500)
-    bcast_hook = hvd.BroadcastGlobalVariablesHook(0)
     # Currently only a single Eval Spec is allowed.
-    tf.estimator.train_and_evaluate(estimator, train_spec, eval_specs[0], hooks=[logging_hook, bcast_hook])
+    tf.estimator.train( input_fn = train_input_fn, steps = train_steps )
+    #tf.estimator.train_and_evaluate(estimator, train_spec, eval_specs[0], hooks=[logging_hook, bcast_hook])
 
 
 if __name__ == '__main__':

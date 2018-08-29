@@ -35,6 +35,16 @@ def build(optimizer_config):
   optimizer = None
 
   summary_vars = []
+
+  if optimizer_type == 'sgd_optimizer':
+    config = optimizer_config.rms_prop_optimizer
+    learning_rate = _create_learning_rate(config.learning_rate)
+    summary_vars.append(learning_rate)
+    optimizer = tf.train.GradientDescentOptimizer(
+      learning_rate,
+      use_locking=False
+      name="GradientDescent")
+
   if optimizer_type == 'rms_prop_optimizer':
     config = optimizer_config.rms_prop_optimizer
     learning_rate = _create_learning_rate(config.learning_rate)
